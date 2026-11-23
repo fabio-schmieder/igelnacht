@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Igelnacht</title>
+<meta name="description" content="Igelnacht: ein kooperatives Spiel für Kinder ab 5. Findet den verirrten Igel und bringt ihn vor Sonnenaufgang heim.">
+<meta name="theme-color" content="#10153a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Igelnacht">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>@font-face{font-family:"Fredoka";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/fredoka-latin-400-normal.woff2) format("woff2")}@font-face{font-family:"Fredoka";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/fredoka-latin-500-normal.woff2) format("woff2")}@font-face{font-family:"Fredoka";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/fredoka-latin-600-normal.woff2) format("woff2")}</style>
+<style>
+:root{
+  color-scheme: dark;
+  --night:#1a2152; --night-deep:#10153a; --glow:#ffe08a; --paper:#fbf4e4; --ink:#453f6b; --ink-soft:#8983a8;
+  --berry:#ee8fa0; --mint:#8fd3b0; --sand:#eadfc6;
+  --font:"Fredoka", ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--night-deep);color:var(--paper);font-family:var(--font);overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:4px solid var(--glow);outline-offset:3px}
+.screen{position:absolute;inset:0;display:none}
+.screen.on{display:block}
+.defs{position:absolute;width:0;height:0}
+
+/* ---------- Start ---------- */
+#start{background:radial-gradient(120% 90% at 50% 0%, #3a3f8f 0%, #23296a 40%, var(--night-deep) 100%)}
+#start .stars{position:absolute;inset:0;width:100%;height:100%}
+.start-inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(12px,3vh,28px);padding:20px}
+.title{font-size:clamp(40px,8vh,84px);font-weight:600;margin:0;color:var(--glow);text-shadow:0 0 34px rgba(255,224,138,.5)}
+.question{font-size:clamp(20px,3.6vh,32px);font-weight:500;margin:0;text-align:center}
+.choices{display:flex;gap:clamp(12px,2.4vw,28px);flex-wrap:wrap;justify-content:center}
+.choice{width:clamp(120px,19vw,210px);min-height:clamp(120px,24vh,210px);border-radius:36px;
+  background:rgba(251,244,228,.1);box-shadow:inset 0 0 0 3px rgba(251,244,228,.2), 0 10px 30px rgba(8,10,40,.35);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;transition:transform .15s, background .15s}
+.choice:active{transform:scale(.95);background:rgba(251,244,228,.22)}
+.choice svg{width:78%;height:auto;max-height:16vh;overflow:visible}
+.choice span{font-size:clamp(15px,2.3vh,21px);font-weight:500}
+.choice small{font-size:clamp(12px,1.8vh,16px);color:#c9c6ea}
+.choices.compact .choice{width:clamp(96px,13vw,150px);min-height:clamp(96px,19vh,160px)}
+.back{position:absolute;z-index:2;left:22px;top:22px;width:64px;height:64px;border-radius:50%;background:rgba(251,244,228,.14);display:none;align-items:center;justify-content:center}
+.back.on{display:flex}
+.back svg{width:30px;height:30px}
+
+/* ---------- Spiel ---------- */
+#game{background:var(--night-deep)}
+#groundSvg,#board,#dark{position:absolute;inset:0;width:100%;height:100%;display:block}
+#groundSvg,#dark{pointer-events:none}
+#dawn{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 1.2s;
+  background:linear-gradient(180deg, rgba(255,160,150,.55) 0%, rgba(255,200,150,.25) 40%, rgba(255,225,180,0) 100%)}
+.card{position:absolute;background:rgba(251,244,228,.92);color:var(--ink);border-radius:30px;box-shadow:0 12px 34px rgba(10,12,50,.45)}
+#skycard{top:12px;left:50%;transform:translateX(-50%);padding:8px 14px;width:min(34vw,420px);height:72px;display:flex;align-items:center}
+#skycard svg{display:block;width:100%;height:100%}
+/* Oben links: zwei getrennte Karten, wer dran ist und der Hunger des Igels */
+#topleft{position:absolute;top:12px;left:12px;display:flex;gap:10px;align-items:stretch}
+#topleft .card{position:relative;top:auto;left:auto}
+#turncard{padding:8px 12px;display:flex;align-items:center;height:72px}
+/* Im Vollbild liegt Safaris eigenes X oben links: Karte und Zurück-Taste weichen nach rechts aus */
+body.fs #topleft{left:84px}
+body.fs .back{left:84px}
+/* Im Vollbild liegt oben die Statusleiste (Uhrzeit, Akku), unten der Home-Balken: die Karten rücken nach innen */
+body.fs #topleft, body.fs #skycard, body.fs #tools{top:calc(12px + max(env(safe-area-inset-top, 0px), 28px))}
+body.fs .back{top:calc(22px + max(env(safe-area-inset-top, 0px), 28px))}
+body.fs #dicecard{bottom:calc(12px + max(env(safe-area-inset-bottom, 0px), 14px))}
+body.fs #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + max(env(safe-area-inset-bottom, 0px), 0px))}
+#who{width:48px;height:48px;overflow:visible;display:block}
+#belly{display:none;align-items:center;gap:4px;padding:8px 12px;height:72px}
+#belly.on{display:flex}
+.pip{width:16px;height:16px;border-radius:50%;background:var(--sand)}
+.pip.full{background:radial-gradient(circle at 35% 30%, #ffc2cb, var(--berry))}
+#belly.bump{animation:bump .5s}
+#tools{top:12px;right:12px;padding:8px;display:flex;gap:8px;height:72px;align-items:center}
+.tool{width:56px;height:56px;border-radius:20px;background:rgba(69,63,107,.08);display:flex;align-items:center;justify-content:center;position:relative}
+.tool svg{width:30px;height:30px}
+.tool .ring{position:absolute;inset:0;border-radius:20px;border:4px solid var(--berry);opacity:0;clip-path:inset(0 100% 0 0)}
+.tool.holding .ring{opacity:1;clip-path:inset(0 0 0 0);transition:clip-path 3s linear}
+#dicecard{bottom:12px;left:50%;transform:translateX(-50%);padding:10px;display:flex;gap:10px;align-items:center}
+#dicecard:empty{display:none}
+.die{width:clamp(64px,8.4vw,86px);height:clamp(64px,8.4vw,86px);border-radius:26px;
+  background:radial-gradient(circle at 35% 25%, #fff, #f3ead6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink);
+  box-shadow:0 6px 0 #d9cdb0, 0 10px 16px rgba(69,63,107,.2);transition:transform .08s, box-shadow .08s}
+.die:active{transform:translateY(5px);box-shadow:0 1px 0 #d9cdb0}
+.die svg{width:74%;height:auto}
+.act{width:clamp(60px,7.6vw,78px);height:clamp(60px,7.6vw,78px);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 rgba(69,63,107,.25)}
+.act:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(69,63,107,.25)}
+.act svg{width:44%;height:44%}
+#done{background:var(--mint)}
+#left{display:flex;gap:9px;align-items:center;justify-content:center;min-width:clamp(150px,24vw,260px);padding:0 8px}
+.dot{width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff6d0, #ffd35e);box-shadow:0 0 14px rgba(255,205,80,.9)}
+.dot.used{background:var(--sand);box-shadow:none}
+#caption{left:50%;transform:translateX(-50%);bottom:calc(clamp(64px,8.4vw,86px) + 46px);max-width:min(76vw,620px);
+  padding:10px 20px;font-size:clamp(15px,2.3vh,20px);font-weight:500;text-align:center;opacity:0;transition:opacity .5s;pointer-events:none}
+#caption.on{opacity:1}
+
+/* Brett */
+.ring-next{fill:var(--glow);fill-opacity:.16;stroke:var(--glow);stroke-width:4;opacity:.9;animation:pulse 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.fig{transition:transform .32s cubic-bezier(.3,.7,.4,1), opacity .35s}
+/* Der Igel folgt dem Glühwürmchen mit kleiner Verzögerung */
+#hog.fig{transition:transform .34s cubic-bezier(.3,.7,.4,1) .16s}
+#belly svg{display:block;margin-right:2px}
+.fig.active .halo{animation:pulse 1.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.fig.munch .inner{animation:munch .9s ease-in-out;transform-box:fill-box;transform-origin:50% 90%}
+.hint{transition:opacity .8s}
+.mote{animation:drift 9s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.16);opacity:.5}}
+@keyframes munch{0%,100%{transform:scale(1,1)}20%,60%{transform:scale(1.1,.86)}40%,80%{transform:scale(.94,1.1)}}
+@keyframes bump{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(14px,-22px);opacity:.75}}
+
+/* Ende + Menue */
+.veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(16,21,58,.78);padding:20px;z-index:20}
+.veil.on{display:flex}
+.sheet{background:var(--paper);color:var(--ink);border-radius:40px;padding:clamp(18px,3vh,32px);max-width:min(92vw,640px);width:100%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);max-height:92%;overflow:auto}
+.sheet h2{font-size:clamp(26px,4.4vh,40px);margin:.2em 0;font-weight:600}
+.sheet p{font-size:clamp(16px,2.5vh,21px);line-height:1.45;margin:.5em auto;max-width:34em}
+.sheet .scene{width:min(60%,300px);height:auto;animation:floaty 3s ease-in-out infinite;overflow:visible}
+.starsrow{font-size:clamp(26px,4vh,38px);letter-spacing:4px;color:#eab53a;min-height:1.3em}
+.big{display:inline-flex;align-items:center;gap:12px;background:var(--ink);color:var(--paper);border-radius:999px;padding:16px 40px;font-size:clamp(18px,2.8vh,24px);font-weight:500;margin:10px 4px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 4px;border-bottom:2px solid var(--sand);font-size:19px;text-align:left}
+.switch{width:68px;height:38px;border-radius:999px;background:#cfc5a8;position:relative;flex:none}
+.switch::after{content:"";position:absolute;top:4px;left:4px;width:30px;height:30px;border-radius:50%;background:#fff;transition:left .15s}
+.switch[aria-checked="true"]{background:var(--mint)}
+.switch[aria-checked="true"]::after{left:34px}
+/* Als App vom Home-Bildschirm gestartet: Platz für Statusleiste und Home-Balken */
+body.app #topleft, body.app #skycard, body.app #tools{top:calc(12px + max(env(safe-area-inset-top, 0px), 24px))}
+body.app .back{top:calc(22px + max(env(safe-area-inset-top, 0px), 24px))}
+body.app #dicecard{bottom:calc(12px + max(env(safe-area-inset-bottom, 0px), 14px))}
+body.app #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + env(safe-area-inset-bottom, 0px))}
+/* Hinweis: Spiel auf den Home-Bildschirm legen */
+.install{position:absolute;right:22px;top:22px;z-index:2;display:none;align-items:center;gap:10px;height:56px;padding:0 20px 0 14px;border-radius:999px;background:rgba(251,244,228,.14);font-size:18px;font-weight:500}
+.install.on{display:flex}
+.install svg{width:28px;height:28px}
+.steps{list-style:none;padding:0;margin:16px auto 8px;text-align:left;max-width:30em;counter-reset:st}
+.steps li{display:flex;gap:14px;align-items:center;padding:8px 0;font-size:clamp(16px,2.4vh,20px);line-height:1.35}
+.steps .ic{flex:none;position:relative;width:56px;height:56px;border-radius:18px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(69,63,107,.15)}
+.steps .ic svg{width:30px;height:30px}
+.steps li .ic::before{counter-increment:st;content:counter(st);position:absolute;left:-8px;top:-8px;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+#rotate{position:absolute;inset:0;z-index:40;background:var(--night);display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;text-align:center;padding:30px;font-size:22px}
+#rotate svg{width:110px;height:110px}
+@media (orientation:portrait){#rotate{display:flex}}
+@media (prefers-reduced-motion:reduce){.ring-next,.fig.active .halo,.sheet .scene,.mote,.fig.munch .inner{animation:none}.fig{transition:none}}
+</style>
+</head>
+<body>
+
+<svg class="defs" aria-hidden="true">
+  <defs>
+    <radialGradient id="gLit"><stop offset="0" stop-color="#000"/><stop offset=".5" stop-color="#000" stop-opacity=".92"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gSeen"><stop offset="0" stop-color="#000" stop-opacity=".42"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gLamp"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".6"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gNest"><stop offset="0" stop-color="#ffc27a" stop-opacity=".85"/><stop offset="1" stop-color="#ffc27a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gHog" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#a47a5a"/><stop offset="1" stop-color="#6a4a36"/></radialGradient>
+    <radialGradient id="gFace" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#fbe6c8"/><stop offset="1" stop-color="#e8c59c"/></radialGradient>
+    <radialGradient id="gShade" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly0"><stop offset="0" stop-color="#fff7d6"/><stop offset=".3" stop-color="#ffe08a" stop-opacity=".8"/><stop offset="1" stop-color="#ffe08a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly1"><stop offset="0" stop-color="#f2ffe6"/><stop offset=".3" stop-color="#a9f29a" stop-opacity=".8"/><stop offset="1" stop-color="#a9f29a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly2"><stop offset="0" stop-color="#eaf8ff"/><stop offset=".3" stop-color="#9ad8ff" stop-opacity=".8"/><stop offset="1" stop-color="#9ad8ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly3"><stop offset="0" stop-color="#fff0f7"/><stop offset=".3" stop-color="#ffaed6" stop-opacity=".8"/><stop offset="1" stop-color="#ffaed6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly4"><stop offset="0" stop-color="#fff3e6"/><stop offset=".3" stop-color="#ffbf80" stop-opacity=".8"/><stop offset="1" stop-color="#ffbf80" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly5"><stop offset="0" stop-color="#f4eeff"/><stop offset=".3" stop-color="#c9b0ff" stop-opacity=".8"/><stop offset="1" stop-color="#c9b0ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly6"><stop offset="0" stop-color="#ecfffb"/><stop offset=".3" stop-color="#7ff0e0" stop-opacity=".8"/><stop offset="1" stop-color="#7ff0e0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly7"><stop offset="0" stop-color="#ffffff"/><stop offset=".3" stop-color="#fff6b8" stop-opacity=".9"/><stop offset="1" stop-color="#fff6b8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFly8"><stop offset="0" stop-color="#fff0ea"/><stop offset=".3" stop-color="#ff8f7a" stop-opacity=".8"/><stop offset="1" stop-color="#ff8f7a" stop-opacity="0"/></radialGradient>
+  </defs>
+</svg>
+
+<!-- ================= Start ================= -->
+<section id="start" class="screen on">
+  <svg class="stars" id="startStars" viewBox="0 0 1200 820" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+  <button class="back" id="backBtn" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="#fbf4e4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="install" id="installBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fbf4e4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6v11h12V9h-2M12 3v12M8 7l4-4 4 4"/></svg>Als App speichern</button>
+  <div class="start-inner">
+    <h1 class="title">Igelnacht</h1>
+    <p class="question" id="question"></p>
+    <div class="choices" id="choices"></div>
+  </div>
+</section>
+
+<!-- ================= Spiel ================= -->
+<section id="game" class="screen">
+  <svg id="groundSvg" viewBox="0 0 1200 820" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+  <canvas id="dark" aria-hidden="true"></canvas>
+  <svg id="board" viewBox="0 0 1200 820" preserveAspectRatio="xMidYMid meet">
+    <g id="motes"></g>
+    <g id="hints"></g>
+    <g id="rings"></g>
+    <g id="hogLayer"></g>
+    <g id="flies"></g>
+  </svg>
+  <div id="dawn"></div>
+
+  <div id="topleft"><div class="card" id="turncard"><svg id="who" viewBox="-30 -30 60 60"></svg></div><div class="card" id="belly" aria-label="Hunger"></div></div>
+  <div class="card" id="skycard"><svg id="sky" viewBox="0 0 360 56"></svg></div>
+  <div class="card" id="caption" role="status" aria-live="polite"></div>
+  <div class="card" id="tools">
+    <button class="tool" id="fsBtn" aria-label="Vollbild"><svg viewBox="0 0 24 24" fill="none" stroke="#453f6b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path id="fsIcon" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="tool" id="gear" aria-label="Eltern-Menü, lange drücken"><span class="ring"></span><svg viewBox="0 0 24 24" fill="none" stroke="#453f6b" stroke-width="2.4" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
+  </div>
+  <div class="card" id="dicecard"></div>
+
+  <div class="veil" id="endVeil"><div class="sheet" id="endSheet"></div></div>
+  <div class="veil" id="storyVeil"><div class="sheet" id="storySheet"></div></div>
+  <div class="veil" id="menuVeil">
+    <div class="sheet">
+      <h2>Eltern-Menü</h2>
+      <div class="row"><span>Geräusche</span><button class="switch" role="switch" id="swSound"></button></div>
+      <button class="big" id="menuClose">Weiterspielen</button>
+      <button class="big" id="menuQuit" style="background:#c9657a">Partie beenden</button>
+    </div>
+  </div>
+</section>
+
+<div class="veil" id="installVeil"><div class="sheet">
+  <h2>Igelnacht als App</h2>
+  <p>So startet das Spiel wie eine App vom Home-Bildschirm: im ganzen Bildschirm und auch ohne Internet.</p>
+  <ol class="steps">
+    <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#2f7bf5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6v11h12V9h-2M12 3v12M8 7l4-4 4 4"/></svg></span><span>Tippe in Safari auf das <b>Teilen-Symbol</b>. Siehst du es nicht, tippe zuerst auf die drei Punkte <b>•••</b>.</span></li>
+    <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#453f6b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span><span>Wähle <b>„Zum Home-Bildschirm“</b>.</span></li>
+    <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#453f6b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l5 5L19 7"/></svg></span><span>Tippe auf <b>„Hinzufügen“</b>. Danach startest du Igelnacht über das neue Igel-Symbol.</span></li>
+  </ol>
+  <button class="big" id="installOk">Verstanden</button>
+</div></div>
+
+<div id="rotate">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#ffe08a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M3 9a9 9 0 012-4M21 15a9 9 0 01-2 4"/></svg>
+  <div>Bitte dreh das iPad ins Querformat.</div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Igelnacht – Prototyp 1 (Stand 2)
+   Stellschrauben stehen hier oben, damit das Balancing einfach bleibt.
+   ===================================================================== */
+const SEASONS = {
+  spring:{ name:"Frühling", sub:"mittlere Nacht", d1:[6,8],  d2:[12,15], hunger:2, cap:6,
+    pal:{g1:"#5d9a7c",g2:"#3b6f66",patch:"#8cc49a",bush:"#3f8566",bushHi:"#7fc39a",tree:"#6fb58c",treeHi:"#ffd3e3",path:"#f4f1d2",dots:"#ffd6e6",pad:"#eef5d6",roof:"#e39a8c"},
+    intro:"Der Igel ist gerade aus dem Winterschlaf aufgewacht. Er hat riesigen Hunger und findet sein Nest nicht mehr. Sucht ihn im dunklen Garten!",
+    hazards:[{kind:"pellets", say:"Schneckenkorn! Das ist giftig für Igel."},{kind:"pond", say:"Ein Teich mit steilem Rand! Da kommt der Igel nicht mehr heraus."}],
+    found:"Super, ihr habt den Igel gefunden! Jetzt bringt ihr ihn alle zusammen heim ins Nest, bevor die Sonne aufgeht. Er hat grossen Hunger: Sucht unterwegs Futter und passt auf die Gefahren auf!",
+    facts:["Im Frühling wachen Igel aus dem Winterschlaf auf. Dann sind sie dünn und sehr hungrig.","Wer kein Schneckenkorn streut, schützt die Igel."] },
+  summer:{ name:"Sommer", sub:"kurze Nacht", d1:[4,6],  d2:[9,11],  hunger:3, cap:4,
+    pal:{g1:"#4b8f7c",g2:"#2c5d63",patch:"#6fb394",bush:"#2f7462",bushHi:"#6fb89a",tree:"#3f8a6e",treeHi:"#bfe8b0",path:"#eef0cf",dots:"#fff3a8",pad:"#e6f2d2",roof:"#e0907c"},
+    intro:"Ein Igelbaby hat sich in der Nacht verlaufen. Es ist hungrig und ganz allein. Sucht es im dunklen Garten!",
+    hazards:[{kind:"mower", say:"Ein Mähroboter! Der ist gefährlich für Igel."},{kind:"net", say:"Ein Netz am Fussballtor! Darin verheddert sich der Igel."}],
+    found:"Super, ihr habt das Igelbaby gefunden! Jetzt bringt ihr es alle zusammen heim ins Nest, bevor die Sonne aufgeht. Es macht noch kleine Schritte. Sucht unterwegs Futter und passt auf die Gefahren auf!",
+    facts:["Igelbabys kommen im Sommer zur Welt. Ihre Stacheln sind am Anfang ganz weich.","An heissen Tagen freuen sich Igel über eine flache Schale Wasser."] },
+  autumn:{ name:"Herbst", sub:"lange Nacht", d1:[8,11], d2:[15,18], hunger:3, cap:6,
+    pal:{g1:"#9a8458",g2:"#6a5a4a",patch:"#c9a468",bush:"#b8683a",bushHi:"#eaa25a",tree:"#dd8a3e",treeHi:"#f6d06a",path:"#f6e8c6",dots:"#f0a04a",pad:"#f6ebcd",roof:"#c9705c"},
+    intro:"Bald kommt der Winter. Der Igel braucht dringend Futter und sein warmes Nest. Sucht ihn im dunklen Garten!",
+    hazards:[{kind:"blower", say:"Ein Laubbläser! Der ist zu laut und zu stark für Igel."},{kind:"shaft", say:"Ein Kellerschacht! Da fällt der Igel hinein."},{kind:"net", say:"Ein Netz am Fussballtor! Darin verheddert sich der Igel."}],
+    found:"Super, ihr habt den Igel gefunden! Jetzt bringt ihr ihn alle zusammen heim ins Nest, bevor die Sonne aufgeht. Er braucht unterwegs noch Futter. Passt auf die Gefahren auf!",
+    facts:["Im Herbst fressen sich Igel ein Fettpolster für den Winter an.","Wer im Herbst Laub liegen lässt, schenkt den Igeln ein Winterbett."] }
+};
+const LEVELS = {
+  easy:  { name:"Einfach", hintEvery:1, moveEvery:0, peek:true,  hazards:3, food:6, buffer:.40 },
+  medium:{ name:"Mittel",  hintEvery:2, moveEvery:3, peek:false, hazards:5, food:5, buffer:.20 },
+  hard:  { name:"Schwer",  hintEvery:3, moveEvery:2, peek:false, hazards:8, food:4, buffer:.05 }
+};
+const FLYC = ["#ffe08a","#a9f29a","#9ad8ff","#ffaed6","#ffbf80","#c9b0ff"];
+const FLYNAME = ["Gelb","Grün","Blau","Rosa","Orange","Violett"];
+const FACTS = [
+  "Igel vertragen keine Milch. Davon bekommen sie Bauchweh. Wasser ist besser.",
+  "Ein kleines Loch im Gartenzaun hilft Igeln, von Garten zu Garten zu wandern.",
+  "Mähroboter sollten nachts nicht fahren, weil Igel dann unterwegs sind.",
+  "Igel fressen am liebsten Käfer, Raupen und Regenwürmer.",
+  "Ein Laubhaufen in der Gartenecke ist ein perfektes Winterbett für Igel.",
+  "Igel schlafen im Winter mehrere Monate lang."
+];
+const HUNGER_MAX = 5, FOOD_GAIN = 3, STEPS_PER_HUNGER = 2;
+
+/* ---------- kleine Helfer ---------- */
+const $ = id => document.getElementById(id);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const shuffle = (arr, r=Math.random) => { const a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const wait = ms => new Promise(res => setTimeout(res, ms));
+const f1 = v => v.toFixed(1);
+function mulberry(seed){ return function(){ let t = seed += 0x6D2B79F5; t = Math.imul(t ^ t>>>15, t|1); t ^= t + Math.imul(t ^ t>>>7, t|61); return ((t ^ t>>>14)>>>0)/4294967296; }; }
+
+/* ---------- Speicher (nur lokal auf diesem Gerät) ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("igelnacht."+k); return v===null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("igelnacht."+k, JSON.stringify(v)); }catch(e){} }
+};
+const prefs = Object.assign({sound:true}, store.get("prefs", {}));
+
+/* ---------- Kurze Texte, die von selbst wieder verschwinden ---------- */
+let capTimer = null;
+function note(text, ms){
+  const cap = $("caption"); cap.textContent = text; cap.classList.add("on");
+  clearTimeout(capTimer);
+  capTimer = setTimeout(() => cap.classList.remove("on"), ms || Math.max(2800, Math.min(5500, 1800 + text.length*45)));
+}
+function clearNote(){ clearTimeout(capTimer); $("caption").classList.remove("on"); }
+
+/* ---------- Geräusche ---------- */
+let actx = null;
+function audio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(actx && actx.state==="suspended"){ try{actx.resume();}catch(e){} } return actx; }
+function tone(freq, dur=.15, type="sine", vol=.12, delay=0){
+  if(!prefs.sound) return; const a = audio(); if(!a) return;
+  try{ const o=a.createOscillator(), g=a.createGain(), t=a.currentTime+delay;
+    o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur+.05);}catch(e){}
+}
+function noise(dur=.5, freq=3200, vol=.22, delay=0){
+  if(!prefs.sound) return; const a = audio(); if(!a) return;
+  try{ const n=Math.floor(a.sampleRate*dur), buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++){ d[i]=(Math.random()*2-1)*Math.sin(Math.PI*i/n)*(Math.random()<.5?1:.3); }
+    const s=a.createBufferSource(), f=a.createBiquadFilter(), g=a.createGain(); s.buffer=buf; f.type="bandpass"; f.frequency.value=freq; g.gain.value=vol;
+    s.connect(f); f.connect(g); g.connect(a.destination); s.start(a.currentTime+delay); }catch(e){}
+}
+const sfx = {
+  step(){ tone(540,.09,"sine",.07); },
+  back(){ tone(340,.09,"sine",.06); },
+  rustle(){ noise(.6, 3200, .22); },
+  munch(){ [0,.22,.44,.66].forEach(d => { noise(.11, 1500, .3, d); tone(190,.07,"triangle",.07,d); }); tone(784,.18,"sine",.09,.86); },
+  scare(){ tone(300,.2,"sine",.09); tone(220,.3,"sine",.09,.16); noise(.25,900,.12); },
+  found(){ [523,659,784,1047].forEach((f,i)=>tone(f,.25,"sine",.12,i*.12)); },
+  win(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.32,"sine",.12,i*.15)); },
+  soft(){ [440,392,349].forEach((f,i)=>tone(f,.4,"sine",.08,i*.25)); }
+};
+
+/* =====================================================================
+   Zeichnungen (weiche Formen mit Verläufen, alles SVG)
+   ===================================================================== */
+function quills(n,a0,a1,cx,cy,rx,ry,len,col,w,tilt=-.3){
+  let h=""; for(let i=0;i<n;i++){ const a=a0+(a1-a0)*i/(n-1), x=cx+Math.cos(a)*rx, y=cy+Math.sin(a)*ry;
+    h+=`<line x1="${f1(x)}" y1="${f1(y)}" x2="${f1(x+Math.cos(a+tilt)*len)}" y2="${f1(y+Math.sin(a+tilt)*len)}"/>`; }
+  return `<g stroke="${col}" stroke-width="${w}" stroke-linecap="round">${h}</g>`;
+}
+const ART = {
+  hog(mode="walk", baby=false){
+    const s = baby ? .8 : 1, P=Math.PI;
+    if(mode==="rolled"){
+      return `<g transform="scale(${s})"><ellipse cx="0" cy="22" rx="24" ry="5" fill="#000" opacity=".2"/>
+        ${quills(20,0,P*1.9,0,0,16,16,11,"#5b3f2c",5,.2)}<circle r="19" fill="url(#gHog)"/>${quills(12,.2,P*1.9,0,0,10,10,6,"#8f6b4f",3.5,.2)}
+        <path d="M-9 1q4 3.5 8 0M3 1q4 3.5 8 0" stroke="#3d2a22" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <circle cx="-10" cy="7" r="3.4" fill="#f29aa0" opacity=".55"/><circle cx="12" cy="7" r="3.4" fill="#f29aa0" opacity=".55"/></g>`;
+    }
+    const eye = mode==="sleep" ? `<path d="M15 6q3.5 3 7 0" stroke="#3d2a22" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+      : `<circle cx="18.5" cy="5" r="3.1" fill="#3d2a22"/><circle cx="19.6" cy="3.9" r="1.1" fill="#fff"/>`;
+    return `<g transform="scale(${s})">
+      <ellipse cx="0" cy="24" rx="27" ry="5" fill="#000" opacity=".2"/>
+      ${quills(14,P*.92,P*1.78,-3,5,24,16,11,"#5b3f2c",5.5)}
+      <ellipse cx="-3" cy="6" rx="25" ry="17" fill="url(#gHog)"/>
+      ${quills(9,P*1.02,P*1.68,-5,6,16,9,7,"#8f6b4f",3.5)}
+      <path d="M6 -3 Q26 -6 35 9 Q26 21 6 21 Q13 9 6 -3Z" fill="url(#gFace)"/>
+      <circle cx="8" cy="-4" r="4.6" fill="#d7a886"/><circle cx="8.6" cy="-3.6" r="2.2" fill="#f0c4b0"/>
+      <ellipse cx="-12" cy="22" rx="6.5" ry="3.6" fill="#f0d3ac"/><ellipse cx="11" cy="22" rx="6.5" ry="3.6" fill="#f0d3ac"/>
+      <circle cx="20" cy="13" r="4.2" fill="#f29aa0" opacity=".55"/>
+      ${eye}<circle cx="35" cy="9" r="3.6" fill="#3d2a22"/><circle cx="36" cy="8" r="1" fill="#fff" opacity=".7"/>
+      <path d="M27 14q2.5 2.5 5 .5" stroke="#3d2a22" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </g>`;
+  },
+  fly(i){
+    return `<circle class="halo" r="38" fill="url(#gFly${i})"/>
+      <ellipse cx="-9" cy="-6" rx="10" ry="6" fill="#fff" opacity=".55" transform="rotate(-28 -9 -6)"/>
+      <ellipse cx="9" cy="-6" rx="10" ry="6" fill="#fff" opacity=".55" transform="rotate(28 9 -6)"/>
+      <ellipse cx="0" cy="-2" rx="6" ry="8.5" fill="#5a463e"/>
+      <circle cx="0" cy="8" r="9" fill="${FLYC[i]}"/><circle cx="-2" cy="6" r="4" fill="#fff" opacity=".7"/>
+      <circle cx="-2.4" cy="-6" r="1.3" fill="#fff"/><circle cx="2.4" cy="-6" r="1.3" fill="#fff"/>`;
+  },
+  food(kind){
+    if(kind==="worm") return `<path d="M-14 6q5 -15 12 -3t12 -4q3 -3 5 -1" stroke="#f3a3b1" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M-13 4q5 -12 10 -3" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".5"/><circle cx="15" cy="-3" r="1.4" fill="#4a3340"/>`;
+    return `<path d="M-12 -7l-5 -4M-13 2h-6M-11 10l-5 4M12 -7l5 -4M13 2h6M11 10l5 4" stroke="#4a3340" stroke-width="2.4" stroke-linecap="round"/>
+      <ellipse cx="0" cy="3" rx="12" ry="13.5" fill="#ea6a62"/><ellipse cx="0" cy="3" rx="12" ry="13.5" fill="url(#gShade)"/><path d="M0 -9v25" stroke="#4a3340" stroke-width="1.8" opacity=".7"/>
+      <circle cx="-5" cy="0" r="2.4" fill="#4a3340"/><circle cx="5" cy="6" r="2.4" fill="#4a3340"/><circle cx="0" cy="-12" r="6.5" fill="#4a3340"/>`;
+  },
+  hazard(kind){
+    if(kind==="pond") return `<ellipse rx="23" ry="17" fill="#a9a6c4"/><ellipse rx="18" ry="12" fill="#7fbfd6"/><ellipse cx="-5" cy="-3" rx="8" ry="3.4" fill="#c5e8f0" opacity=".7"/>`;
+    if(kind==="net") return `<path d="M-13 -11v23M-6.5 -11v23M0 -11v23M6.5 -11v23M13 -11v23M-19 -4h38M-19 4h38" stroke="#fff" stroke-width="1.5" opacity=".8"/><path d="M-19 13V-11h38v24" stroke="#fff" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if(kind==="shaft") return `<rect x="-19" y="-14" width="38" height="28" rx="7" fill="#bdb8d6"/><rect x="-13" y="-8" width="26" height="16" rx="4" fill="#3a3a5c"/><path d="M-6.5 -8v16M0 -8v16M6.5 -8v16" stroke="#8a88a8" stroke-width="2"/>`;
+    if(kind==="pellets") return `<circle r="21" fill="#fff" opacity=".85"/><g fill="#6aa0ea"><circle cx="-8" cy="-5" r="4.4"/><circle cx="3" cy="-9" r="4.4"/><circle cx="9" cy="1" r="4.4"/><circle cx="-2" cy="4" r="4.4"/><circle cx="-10" cy="8" r="3.8"/><circle cx="6" cy="11" r="3.8"/></g>`;
+    if(kind==="blower") return `<rect x="-19" y="-9" width="22" height="20" rx="9" fill="#f2a04e"/><rect x="-19" y="-9" width="22" height="20" rx="9" fill="url(#gShade)"/><rect x="0" y="-3" width="21" height="9" rx="4.5" fill="#8a88a8"/><path d="M-12 -9q4 -10 10 0" stroke="#4a3340" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M24 -6q6 3 2 7M26 4q7 2 3 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+    return `<rect x="-21" y="-12" width="42" height="24" rx="12" fill="#f1ecdc"/><path d="M-21 -2a12 10 0 0112 -10h18a12 10 0 0112 10z" fill="#7cc48a"/><rect x="-21" y="-12" width="42" height="24" rx="12" fill="url(#gShade)"/><circle cx="-11" cy="13" r="5" fill="#4a3340"/><circle cx="11" cy="13" r="5" fill="#4a3340"/><circle cx="12" cy="-6" r="2.8" fill="#ee6a6a"/>`;
+  },
+  trash(kind){
+    if(kind==="milk") return `<path d="M-19 -3h38q-3 16 -19 16t-19 -16z" fill="#9cc6ee"/><ellipse cx="0" cy="-3" rx="19" ry="5.5" fill="#fff"/><ellipse cx="-5" cy="-4" rx="7" ry="2" fill="#fff" opacity=".8"/>`;
+    return `<path d="M-10 -12h20l-3 26q-7 3 -14 0z" fill="#fff" opacity=".85"/><path d="M-10 -5h20" stroke="#ee8a8a" stroke-width="4" stroke-linecap="round"/><path d="M2 -12l5 -9" stroke="#f3a3b1" stroke-width="3" stroke-linecap="round"/>`;
+  },
+  nest(){
+    return `<circle r="70" fill="url(#gNest)"/><ellipse cx="0" cy="11" rx="35" ry="18" fill="#7a573d"/><ellipse cx="0" cy="7" rx="26" ry="11" fill="#573c2a"/>
+      <g><ellipse cx="-25" cy="3" rx="13" ry="6.5" fill="#eaa548" transform="rotate(-30 -25 3)"/><ellipse cx="25" cy="3" rx="13" ry="6.5" fill="#e0823c" transform="rotate(30 25 3)"/><ellipse cx="-8" cy="-7" rx="13" ry="6.5" fill="#f2cc6a" transform="rotate(-12 -8 -7)"/><ellipse cx="11" cy="-7" rx="13" ry="6.5" fill="#d46f38" transform="rotate(14 11 -7)"/></g>`;
+  },
+  prints(){ return `<g fill="#ffe9a8"><ellipse cx="-12" cy="6" rx="4" ry="6" transform="rotate(-20 -12 6)"/><ellipse cx="-2" cy="-8" rx="4" ry="6" transform="rotate(-20 -2 -8)"/><ellipse cx="9" cy="7" rx="4" ry="6" transform="rotate(-20 9 7)"/><ellipse cx="17" cy="-7" rx="4" ry="6" transform="rotate(-20 17 -7)"/></g>`; },
+  pips(n){
+    const P={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]}[n];
+    return `<svg viewBox="-20 -20 40 40">${P.map(p=>`<circle cx="${p[0]*11.5}" cy="${p[1]*11.5}" r="4.6" fill="#453f6b"/>`).join("")}</svg>`;
+  }
+};
+
+/* =====================================================================
+   Spielbrett: festes Wegnetz mit Zäunen, Hecken, Bäumen und Häusern
+   ===================================================================== */
+const COLS=9, ROWS=5, ROAD_AFTER=4, TUNNEL_ROW=2, ROAD_X=660, X0=120, DX=120, Y0=166, DY=116;
+const BOARD = (function build(){
+  const r = mulberry(23);
+  const nodes=[], id=(c,rw)=>rw*COLS+c;
+  for(let rw=0; rw<ROWS; rw++) for(let c=0; c<COLS; c++){
+    const jx = (c===ROAD_AFTER||c===ROAD_AFTER+1) ? 8 : 26;
+    nodes.push({ id:id(c,rw), c, r:rw, x:X0+c*DX+(r()*2-1)*jx, y:Y0+rw*DY+(r()*2-1)*20, adj:[], hide:false });
+  }
+  let edges=[];
+  for(let rw=0; rw<ROWS; rw++) for(let c=0; c<COLS-1; c++){
+    const road = c===ROAD_AFTER;
+    if(road && (rw===1||rw===3)) continue;
+    edges.push({a:id(c,rw), b:id(c+1,rw), road: road && rw!==TUNNEL_ROW, tunnel: road && rw===TUNNEL_ROW});
+  }
+  for(let rw=0; rw<ROWS-1; rw++) for(let c=0; c<COLS; c++) edges.push({a:id(c,rw), b:id(c,rw+1), road:false, tunnel:false});
+  const connectedSafe = list => {
+    const adj = nodes.map(()=>[]); list.forEach(e=>{ if(!e.road){ adj[e.a].push(e.b); adj[e.b].push(e.a); } });
+    const seen=new Set([0]), q=[0]; while(q.length){ const n=q.shift(); adj[n].forEach(m=>{ if(!seen.has(m)){seen.add(m);q.push(m);} }); }
+    return seen.size===nodes.length;
+  };
+  // Zäune und Hecken: hier kann niemand durchlaufen
+  const walls=[];
+  for(const e of shuffle(edges.filter(e=>!e.road&&!e.tunnel), r)){
+    if(walls.length>=23) break;
+    const rest = edges.filter(x=>x!==e);
+    if(connectedSafe(rest)){ edges=rest; walls.push({a:e.a, b:e.b, kind: r()<.55 ? "fence" : "hedge"}); }
+  }
+  const usedCells = new Set();
+  let diag=0;
+  for(const n of shuffle(nodes, r)){
+    if(diag>=6) break;
+    if(n.c>=COLS-1 || n.r>=ROWS-1 || n.c===ROAD_AFTER) continue;
+    edges.push({a:n.id, b:id(n.c+1,n.r+1), road:false, tunnel:false}); usedCells.add(n.c+","+n.r); diag++;
+  }
+  edges.forEach(e=>{ e.bend=(r()*2-1)*15; nodes[e.a].adj.push({to:e.b, road:e.road, tunnel:e.tunnel}); nodes[e.b].adj.push({to:e.a, road:e.road, tunnel:e.tunnel}); });
+  shuffle(nodes, r).slice(0,13).forEach(n=>n.hide=true);
+  // Dekoration in den Feldern zwischen den Wegen
+  const cells=[];
+  for(let rw=0; rw<ROWS-1; rw++) for(let c=0; c<COLS-1; c++){
+    if(c===ROAD_AFTER || usedCells.has(c+","+rw)) continue;
+    const q=[id(c,rw),id(c+1,rw),id(c,rw+1),id(c+1,rw+1)].map(i=>nodes[i]);
+    cells.push({x:q.reduce((s,n)=>s+n.x,0)/4, y:q.reduce((s,n)=>s+n.y,0)/4});
+  }
+  const kinds=["house","pond","tree","tree","house","tree","flowers","tree","wood","tree","flowers","tree","tree","flowers","tree","tree"];
+  const decor = shuffle(cells, r).slice(0,kinds.length).map((c,i)=>({kind:kinds[i], x:c.x+(r()*2-1)*8, y:c.y+(r()*2-1)*8, s:.85+r()*.3, v:r()}));
+  // Bäume am Rand, damit das Brett eingerahmt wirkt
+  for(let i=0;i<16;i++){ const top=i%2===0; decor.push({kind:"tree", x:-40+r()*1280, y: top ? 20+r()*60 : 740+r()*70, s:1+r()*.5, v:r()}); }
+  for(let i=0;i<8;i++){ decor.push({kind:"tree", x: i%2 ? 1178+r()*70 : -50+r()*66, y:120+r()*560, s:1+r()*.4, v:r()}); }
+  const patches=[]; for(let i=0;i<22;i++) patches.push({x:-100+r()*1400, y:-60+r()*940, rx:90+r()*160, ry:60+r()*110, dark:r()<.4, rot:r()*180});
+  const dots=[]; for(let i=0;i<110;i++){ const x=-60+r()*1320, y=60+r()*720; if(Math.abs(x-ROAD_X)<44) continue; dots.push({x,y,s:1.6+r()*2.4}); }
+  const motes=[]; for(let i=0;i<14;i++) motes.push({x:60+r()*1080, y:120+r()*580, d:r()*9});
+  // Löcher im Zaun: Abkürzungen nur für den Igel, dort wo der Umweg am längsten wäre
+  const detour=(a,b)=>{ const d=new Array(nodes.length).fill(-1); d[a]=0; const q=[a];
+    while(q.length){ const n=q.shift(); if(n===b) return d[n]; for(const e of nodes[n].adj){ if(e.road || d[e.to]>=0) continue; d[e.to]=d[n]+1; q.push(e.to); } } return 99; };
+  walls.filter(w=>w.kind==="fence").map(w=>({w, d:detour(w.a,w.b)})).sort((x,y)=>y.d-x.d).slice(0,3).forEach(({w})=>{
+    w.hole=true; edges.push({a:w.a, b:w.b, road:false, tunnel:false, hole:true, bend:0});
+    nodes[w.a].adj.push({to:w.b, hole:true}); nodes[w.b].adj.push({to:w.a, hole:true}); });
+  // Laternen: zwei Felder an der Strasse liegen im hellen Licht
+  [id(ROAD_AFTER+1,1), id(ROAD_AFTER+1,3)].forEach(i=>{ nodes[i].lamp=true; nodes[i].hide=false; });
+  return {nodes, edges, walls, decor, patches, dots, motes};
+})();
+const N = BOARD.nodes;
+
+function bfs(from, opts={}){
+  const dist = new Array(N.length).fill(Infinity); dist[from]=0; const q=[from];
+  while(q.length){ const n=q.shift();
+    for(const e of N[n].adj){ if(opts.safe && e.road) continue; if(opts.noHole && e.hole) continue; if(opts.block && opts.block.has(e.to)) continue;
+      if(dist[e.to]===Infinity){ dist[e.to]=dist[n]+1; q.push(e.to); } } }
+  return dist;
+}
+function nearestInRange(cands, dist, lo, hi){
+  const inR = cands.filter(n => dist[n]>=lo && dist[n]<=hi);
+  if(inR.length) return pick(inR);
+  const mid=(lo+hi)/2, ok=cands.filter(n=>dist[n]!==Infinity && dist[n]>0);
+  ok.sort((a,b)=>Math.abs(dist[a]-mid)-Math.abs(dist[b]-mid));
+  return ok[0];
+}
+
+/* =====================================================================
+   Spielzustand
+   ===================================================================== */
+let G = null;
+function newGame(cfg){
+  const S = SEASONS[cfg.season], L = LEVELS[cfg.level];
+  const ids = N.map(n=>n.id), hides = ids.filter(i=>N[i].hide);
+  let start, hog, nest, tries=0, bestScore=Infinity, best=null;
+  do{
+    start = pick(ids.filter(i=>!N[i].hide));
+    hog = nearestInRange(hides, bfs(start,{noHole:true}), S.d1[0], S.d1[1]);
+    const dSafe = bfs(hog, {safe:true});
+    nest = nearestInRange(ids.filter(i=>!N[i].hide && !N[i].lamp && i!==start), dSafe, S.d2[0], S.d2[1]);
+    const d1=bfs(start,{noHole:true})[hog], d2=dSafe[nest];
+    const score = (d1<S.d1[0]?S.d1[0]-d1:d1>S.d1[1]?d1-S.d1[1]:0) + (d2<S.d2[0]?S.d2[0]-d2:d2>S.d2[1]?d2-S.d2[1]:0);
+    if(score<bestScore){ bestScore=score; best={start,hog,nest}; }
+    tries++;
+  }while(bestScore>0 && tries<80);
+  ({start,hog,nest} = best);
+
+  const type = {}; type[nest]="nest";
+  const free = () => shuffle(ids.filter(i => !type[i] && i!==start && i!==hog && !N[i].hide));
+  // Gefahren und Abfall: ein sicherer Weg zum Nest muss frei bleiben
+  const blocked = new Set(), hz = {}; let placed=0, hzN=Math.floor(Math.random()*S.hazards.length);
+  for(const i of free()){
+    if(placed>=L.hazards) break;
+    blocked.add(i);
+    if(bfs(hog,{safe:true,block:blocked})[nest]===Infinity){ blocked.delete(i); continue; }
+    type[i] = placed%2===0 ? "hazard" : (placed%4===1 ? "milk" : "plastic"); placed++;
+    if(type[i]==="hazard") hz[i] = S.hazards[(hzN++) % S.hazards.length];
+  }
+  let f=0; for(const i of free()){ if(f>=L.food) break; type[i] = f%2 ? "worm" : "beetle"; f++; }
+
+  const d1=bfs(start,{noHole:true})[hog], d2=bfs(hog,{safe:true,block:blocked})[nest], avg = S.cap<6 ? 3 : 3.5;
+  const turns = Math.ceil(d1*2/3.5)+1 + Math.ceil(d2*1.3/avg)+2;
+  G = { cfg, S, L, type, hz, start, nest,
+    phase:1, stage:"dice", busy:false,
+    hog:{node:hog, found:false, hunger:S.hunger, walked:0, mode:"walk", face:1},
+    flies: Array.from({length:cfg.players}, (_,i)=>({i, c:(cfg.colors && cfg.colors[i]!=null) ? cfg.colors[i] : i, node:start})),
+    seen:new Set([start]), prints:[],
+    turn:0, round:0, hintNo:0, active:0,
+    timeUsed:0, timeTotal: Math.ceil(turns*(1+L.buffer)),
+    steps:0, stepsMax:0, walkedTurn:0, path:[], scared:null, saidCap:false };
+  drawGround(); drawObjects(); drawFigures(); updateDark(); updateSky(); updateBelly();
+  $("dawn").style.opacity = 0; $("hints").innerHTML=""; $("endVeil").classList.remove("on"); clearNote();
+}
+
+/* =====================================================================
+   Zeichnen
+   ===================================================================== */
+function svg(parent, markup){ parent.insertAdjacentHTML("beforeend", markup); return parent.lastElementChild; }
+function blob(x,y,r,fill,hi){ // weicher Busch oder Baumkrone aus überlappenden Kreisen
+  let h=""; const k=[[-.55,.1,.75],[.5,0,.8],[0,-.5,.75],[.05,.45,.8],[0,0,.9]];
+  k.forEach(([dx,dy,s])=> h+=`<circle cx="${f1(x+dx*r)}" cy="${f1(y+dy*r)}" r="${f1(r*s)}" fill="${fill}"/>`);
+  k.slice(0,4).forEach(([dx,dy,s])=> h+=`<circle cx="${f1(x+dx*r-r*.18)}" cy="${f1(y+dy*r-r*.2)}" r="${f1(r*s*.5)}" fill="${hi}" opacity=".38"/>`);
+  return h;
+}
+function drawGround(){
+  const p = G.S.pal, r = mulberry(77); let h = "", top = "";
+  h += `<defs><radialGradient id="gGround" cx=".5" cy=".45" r=".8"><stop offset="0" stop-color="${p.g1}"/><stop offset="1" stop-color="${p.g2}"/></radialGradient>
+    <radialGradient id="gPad"><stop offset="0" stop-color="${p.pad}"/><stop offset=".62" stop-color="${p.pad}" stop-opacity=".92"/><stop offset="1" stop-color="${p.pad}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gPatch"><stop offset="0" stop-color="${p.patch}" stop-opacity=".55"/><stop offset="1" stop-color="${p.patch}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gPatchD"><stop offset="0" stop-color="${p.g2}" stop-opacity=".6"/><stop offset="1" stop-color="${p.g2}" stop-opacity="0"/></radialGradient></defs>`;
+  h += `<rect x="-200" y="-200" width="1600" height="1220" fill="url(#gGround)"/>`;
+  BOARD.patches.forEach(q => h += `<ellipse cx="${f1(q.x)}" cy="${f1(q.y)}" rx="${f1(q.rx)}" ry="${f1(q.ry)}" fill="url(#${q.dark?"gPatchD":"gPatch"})" transform="rotate(${f1(q.rot)} ${f1(q.x)} ${f1(q.y)})"/>`);
+  BOARD.dots.forEach(d => h += `<circle cx="${f1(d.x)}" cy="${f1(d.y)}" r="${f1(d.s)}" fill="${p.dots}" opacity=".7"/>`);
+  // Jahreszeit: Blümchen im Frühling, gefallenes Laub und Nebel im Herbst, mehr Glühpunkte im Sommer
+  const season=G.cfg.season, spot=()=>{ let x; do{ x=-40+r()*1280; }while(Math.abs(x-ROAD_X)<46); return [x, 70+r()*700]; };
+  if(season==="spring") for(let i=0;i<46;i++){ const [x,y]=spot(); h += `<circle cx="${f1(x)}" cy="${f1(y)}" r="5.5" fill="${i%3?"#fff":"#ffc0d0"}" opacity=".9"/><circle cx="${f1(x)}" cy="${f1(y)}" r="2.2" fill="#ffe08a"/>`; }
+  if(season==="autumn"){
+    for(let i=0;i<70;i++){ const [x,y]=spot(); h += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="7" ry="3.6" fill="${["#eaa548","#d46f38","#f2cc6a","#c9603a"][i%4]}" opacity=".85" transform="rotate(${f1(r()*180)} ${f1(x)} ${f1(y)})"/>`; }
+    for(let i=0;i<5;i++){ const [x,y]=spot(); top += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(170+r()*120)}" ry="${f1(26+r()*16)}" fill="#fff" opacity=".07"/>`; }
+  }
+  // Strasse mit Laternen
+  h += `<rect x="${ROAD_X-27}" y="-200" width="54" height="1220" rx="6" fill="#6b6a8c"/><rect x="${ROAD_X-27}" y="-200" width="54" height="1220" fill="#fff" opacity=".06"/>
+    <path d="M${ROAD_X} -200V1020" stroke="#f6eeda" stroke-width="4" stroke-dasharray="20 22" stroke-linecap="round" opacity=".75"/>`;
+  N.filter(n=>n.lamp).forEach(n => { h += `<circle cx="${f1(n.x)}" cy="${f1(n.y)}" r="82" fill="url(#gLamp)"/>`; top += `<circle cx="${ROAD_X+38}" cy="${f1(n.y-36)}" r="13" fill="#ffe9a8" opacity=".5"/><circle cx="${ROAD_X+38}" cy="${f1(n.y-36)}" r="8" fill="#fff3c4"/>`; });
+  // Dekoration
+  BOARD.decor.forEach(d => { const x=d.x, y=d.y, s=d.s;
+    if(d.kind==="pond") h += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(46*s)}" ry="${f1(32*s)}" fill="#7fbfd6"/><ellipse cx="${f1(x-8)}" cy="${f1(y-7)}" rx="${f1(22*s)}" ry="${f1(9*s)}" fill="#c5e8f0" opacity=".6"/><circle cx="${f1(x+16)}" cy="${f1(y+8)}" r="7" fill="#7fc39a"/><circle cx="${f1(x+26)}" cy="${f1(y-2)}" r="5" fill="#7fc39a"/>`;
+    else if(d.kind==="flowers"){ for(let i=0;i<9;i++){ const a=r()*6.28, q=r()*30; h += `<circle cx="${f1(x+Math.cos(a)*q)}" cy="${f1(y+Math.sin(a)*q*.8)}" r="${f1(4+r()*3)}" fill="${[p.dots,"#fff","#ffc0d0","#ffe08a"][i%4]}" opacity=".9"/>`; } }
+    else if(d.kind==="wood"){ h += `<ellipse cx="${f1(x)}" cy="${f1(y+12)}" rx="36" ry="9" fill="#000" opacity=".15"/>`; [[-18,6],[0,6],[18,6],[-9,-8],[9,-8],[0,-21]].forEach(([dx,dy])=> h += `<circle cx="${f1(x+dx)}" cy="${f1(y+dy)}" r="10" fill="#b98a62"/><circle cx="${f1(x+dx)}" cy="${f1(y+dy)}" r="5.5" fill="#e6c79c"/>`); }
+    else if(d.kind==="house"){ h += `<ellipse cx="${f1(x)}" cy="${f1(y+30)}" rx="46" ry="9" fill="#000" opacity=".16"/><circle cx="${f1(x+12)}" cy="${f1(y+8)}" r="46" fill="url(#gLamp)"/>
+        <rect x="${f1(x-32)}" y="${f1(y-10)}" width="64" height="40" rx="9" fill="#f6ead2"/>
+        <path d="M${f1(x-42)} ${f1(y-6)} L${f1(x)} ${f1(y-40)} L${f1(x+42)} ${f1(y-6)} Z" fill="${p.roof}" stroke="${p.roof}" stroke-width="10" stroke-linejoin="round"/>
+        <rect x="${f1(x-22)}" y="${f1(y+6)}" width="15" height="24" rx="6" fill="#b98a62"/><rect x="${f1(x+2)}" y="${f1(y)}" width="20" height="17" rx="5" fill="#ffe08a"/>`; }
+    else { top += `<ellipse cx="${f1(x+6)}" cy="${f1(y+10)}" rx="${f1(34*s)}" ry="${f1(26*s)}" fill="#000" opacity=".14"/>` + blob(x,y,30*s,p.tree,p.treeHi);
+      for(let i=0;i<5;i++){ const a=d.v*6+i*1.3; top += `<circle cx="${f1(x+Math.cos(a)*18*s)}" cy="${f1(y+Math.sin(a)*15*s)}" r="3.2" fill="${p.treeHi}" opacity=".85"/>`; } }
+  });
+  // Wege als weiche Trittspuren
+  BOARD.edges.forEach(e => { const a=N[e.a], b=N[e.b], mx=(a.x+b.x)/2, my=(a.y+b.y)/2, len=Math.hypot(b.x-a.x,b.y-a.y), nx=-(b.y-a.y)/len, ny=(b.x-a.x)/len;
+    if(e.tunnel) h += `<rect x="${ROAD_X-38}" y="${f1(my-27)}" width="76" height="54" rx="27" fill="#bdb8d6"/><rect x="${ROAD_X-31}" y="${f1(my-20)}" width="62" height="40" rx="20" fill="#3a3a5c"/>`;
+    const d=`M${f1(a.x)} ${f1(a.y)} Q${f1(mx+nx*e.bend)} ${f1(my+ny*e.bend)} ${f1(b.x)} ${f1(b.y)}`;
+    h += e.road ? `<path d="${d}" fill="none" stroke="#ffb3a6" stroke-width="8" stroke-linecap="round" stroke-dasharray="1 19" opacity=".95"/>`
+                : `<path d="${d}" fill="none" stroke="${p.path}" stroke-width="16" stroke-linecap="round" opacity=".16"/><path d="${d}" fill="none" stroke="${p.path}" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 16" opacity=".8"/>`; });
+  // Zäune und Hecken
+  BOARD.walls.forEach(w => { const a=N[w.a], b=N[w.b], mx=(a.x+b.x)/2, my=(a.y+b.y)/2, ang=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI+90; let g="";
+    if(w.kind==="fence"){
+      g += `<path d="${w.hole ? "M-42 6h26M16 6h26" : "M-42 6h84"}" stroke="#000" stroke-width="7" stroke-linecap="round" opacity=".12"/><path d="${w.hole ? "M-42 -5h26M16 -5h26M-42 4h26M16 4h26" : "M-42 -5h84M-42 4h84"}" stroke="#d7b384" stroke-width="4" stroke-linecap="round"/>`;
+      for(let x=-38;x<=38;x+=12.6){ if(w.hole && Math.abs(x)<13) continue; g += `<rect x="${f1(x-3.4)}" y="-13" width="6.8" height="24" rx="3.4" fill="#f1dcb2"/>`; }
+      if(w.hole) g += `<path d="M-15 10V-3a15 15 0 0130 0V10" fill="none" stroke="#d7b384" stroke-width="4" stroke-linecap="round"/>`; }
+    else { for(let x=-38;x<=38;x+=15) g += `<circle cx="${x}" cy="0" r="15" fill="${p.bush}"/>`; for(let x=-38;x<=38;x+=15) g += `<circle cx="${x-4}" cy="-5" r="7" fill="${p.bushHi}" opacity=".45"/>`; }
+    h += `<g transform="translate(${f1(mx)} ${f1(my)}) rotate(${f1(ang)})">${g}</g>`; });
+  // Felder
+  N.forEach(n => { if(n.hide) h += blob(n.x, n.y-4, 34, p.bush, p.bushHi);
+    h += `<circle cx="${f1(n.x)}" cy="${f1(n.y)}" r="33" fill="url(#gPad)" opacity="${n.hide?.6:1}"/>`; });
+  $("groundSvg").innerHTML = h + top + `<g id="objects"></g>`;
+  $("motes").innerHTML = BOARD.motes.concat(season==="summer" ? Array.from({length:16}, ()=>({x:60+r()*1080, y:120+r()*580, d:r()*9})) : []).map(m => `<circle class="mote" cx="${f1(m.x)}" cy="${f1(m.y)}" r="2.6" fill="#fff3c4" style="animation-delay:-${f1(m.d)}s"/>`).join("");
+}
+function objArt(k){ const t=G.type[k];
+  if(t==="nest") return ART.nest(); if(t==="hazard") return ART.hazard(G.hz[k].kind);
+  if(t==="milk"||t==="plastic") return ART.trash(t); return ART.food(t); }
+function addObj(k){ const n=N[k]; svg($("objects"), `<g id="obj${k}" transform="translate(${f1(n.x)} ${f1(n.y)})">${objArt(k)}</g>`); }
+function drawObjects(){ $("objects").innerHTML=""; for(const k in G.type) addObj(k); }
+function place(el, x, y, scale=1){ el.style.transform = `translate(${f1(x)}px, ${f1(y)}px) scale(${scale})`; }
+function drawFigures(){
+  $("flies").innerHTML=""; $("hogLayer").innerHTML=""; $("rings").innerHTML="";
+  G.flies.forEach(f => { f.el = svg($("flies"), `<g class="fig" id="fly${f.i}">${ART.fly(f.c)}</g>`); });
+  G.hog.el = svg($("hogLayer"), `<g class="fig" id="hog" style="display:none"><g class="flip"><g class="inner"></g></g></g>`);
+  setHog("walk"); positionAll();
+}
+function setHog(mode){ G.hog.mode=mode; G.hog.el.querySelector(".inner").innerHTML = ART.hog(mode, G.cfg.season==="summer"); }
+function positionAll(){
+  const hn = N[G.hog.node];
+  G.hog.el.querySelector(".flip").setAttribute("transform", `scale(${G.hog.face} 1)`);
+  if(G.phase===1){
+    const groups = {}; G.flies.forEach(f => (groups[f.node] = groups[f.node]||[]).push(f));
+    for(const k in groups){ const arr=groups[k], n=N[k];
+      arr.forEach((f,j) => { const off=(j-(arr.length-1)/2)*30; f.el.style.display=""; place(f.el, n.x+off, n.y-6-Math.abs(off)*.2); }); }
+    place(G.hog.el, hn.x, hn.y-4, G.hog.found?1:.62);
+  } else {
+    place(G.hog.el, hn.x, hn.y-4);
+    // Der Igel hat genau ein Glühwürmchen als Licht: das der Person, die dran ist.
+    // Beim Zugwechsel fliegt das alte davon und das neue kommt angeflogen.
+    const fx=hn.x-8*G.hog.face, fy=hn.y-52, neu=G.flies[G.active];
+    if(G.shown!==G.active){
+      const old=G.flies.find(f=>f.i===G.shown);
+      if(old && old!==neu){ const el=old.el; el.style.opacity="0"; place(el, fx+90, fy-110, .5); setTimeout(()=>{ if(el.style.opacity==="0") el.style.display="none"; }, 450); }
+      neu.el.style.transition="none"; neu.el.style.display=""; neu.el.style.opacity="0"; place(neu.el, fx-110, fy-120, .5);
+      void neu.el.getBoundingClientRect();
+      neu.el.style.transition=""; neu.el.style.opacity="1";
+      G.shown=G.active;
+    }
+    neu.el.style.display=""; place(neu.el, fx, fy, .78);
+    G.flies.forEach(f => { if(f!==neu && f.el.style.opacity!=="0") f.el.style.display="none"; });
+  }
+  G.flies.forEach(f => f.el.classList.toggle("active", f.i===G.active && !G.busy && G.stage!=="end"));
+}
+// Die Dunkelheit wird auf eine Leinwand gemalt (zuverlässiger als eine SVG-Maske)
+const darkCv = $("dark"); let dctx = null; try{ dctx = darkCv.getContext("2d"); }catch(e){}
+function updateDark(){
+  const w=darkCv.clientWidth, h=darkCv.clientHeight; if(!dctx || !w || !h) return;
+  if(darkCv.width!==w || darkCv.height!==h){ darkCv.width=w; darkCv.height=h; }
+  const s=Math.min(w/1200, h/820), ox=(w-1200*s)/2, oy=(h-820*s)/2;
+  const hole=(n, r, stops)=>{ const x=ox+n.x*s, y=oy+n.y*s, g=dctx.createRadialGradient(x,y,0,x,y,r*s);
+    stops.forEach(([o,a])=>g.addColorStop(o, `rgba(0,0,0,${a})`)); dctx.fillStyle=g; dctx.beginPath(); dctx.arc(x,y,r*s,0,6.2832); dctx.fill(); };
+  const SEEN=[[0,.42],[1,0]], LIT=[[0,1],[.5,.92],[1,0]];
+  dctx.globalCompositeOperation="source-over"; dctx.clearRect(0,0,w,h); dctx.fillStyle="rgba(18,24,67,.94)"; dctx.fillRect(0,0,w,h);
+  dctx.globalCompositeOperation="destination-out";
+  G.seen.forEach(k => hole(N[k], 80, SEEN));
+  N.forEach(n => { if(n.lamp) hole(n, 80, [[0,.7],[1,0]]); });
+  if(G.phase===1) G.flies.forEach(f => hole(N[f.node], 190, LIT));
+  else { hole(N[G.hog.node], 180, LIT); hole(N[G.nest], 92, LIT); }
+}
+function updateSky(){
+  const p = Math.min(1, G.timeUsed/G.timeTotal), x0=26, x1=292, mx=x0+(x1-x0)*p;
+  let ticks=""; for(let i=0;i<G.timeTotal;i++){ const x=x0+(x1-x0)*(i+.5)/G.timeTotal; ticks += `<circle cx="${f1(x)}" cy="46" r="2.8" fill="${i<G.timeUsed?"#d9cdb0":"#8983a8"}"/>`; }
+  $("sky").innerHTML = `<defs><linearGradient id="skyG" x1="0" x2="1"><stop offset="0" stop-color="#2a3277"/><stop offset=".6" stop-color="#6a5aa8"/><stop offset=".85" stop-color="#f09aa6"/><stop offset="1" stop-color="#ffd08a"/></linearGradient><clipPath id="skyC"><rect x="4" y="4" width="352" height="32" rx="16"/></clipPath></defs>
+    <rect x="4" y="4" width="352" height="32" rx="16" fill="url(#skyG)"/>
+    <g clip-path="url(#skyC)"><circle cx="328" cy="${f1(44-18*p)}" r="27" fill="#ffe08a" opacity=".3"/><circle cx="328" cy="${f1(44-18*p)}" r="17" fill="#ffe08a"/></g>
+    <g transform="translate(${f1(mx)} 20)"><circle r="18" fill="#fff" opacity=".18"/><circle r="12" fill="#fbf4e4"/><circle cx="5" cy="-3" r="10" fill="#3a3f8f"/></g>${ticks}`;
+  $("dawn").style.opacity = Math.max(0, p-.55)*1.3;
+}
+function updateBelly(bump){
+  const b=$("belly"); b.classList.toggle("on", G.phase===2);
+  b.innerHTML = `<svg viewBox="-36 -32 74 60" width="34" height="28" aria-hidden="true">${ART.hog("walk")}</svg>` + Array.from({length:HUNGER_MAX},(_,i)=>`<span class="pip ${i<G.hog.hunger?"full":""}"></span>`).join("");
+  if(bump){ b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
+  // In beiden Phasen zeigt die Karte das Glühwürmchen der Person am Zug
+  $("who").innerHTML = `<g transform="scale(.8)">${ART.fly(G.flies[G.active].c)}</g>`;
+}
+function drawRings(){
+  const r=$("rings"); r.innerHTML="";
+  if(G.stage!=="move" || G.busy) return;
+  if(G.steps<=0) return;
+  const cur = G.path[G.path.length-1];
+  // alle Nachbarfelder leuchten, auch das, von dem man gerade kommt (Zurückfahren kostet einen Schritt)
+  N[cur].adj.forEach(e => { const n=N[e.to]; if(G.phase===1 && e.hole) return;
+    svg(r, `<circle class="ring-next" cx="${f1(n.x)}" cy="${f1(n.y)}" r="34"/>`); });
+}
+
+/* ---------- Karten ---------- */
+function showDice(){
+  const c=$("dicecard"); c.className = "card";
+  c.innerHTML = [1,2,3,4,5,6].map(n => `<button class="die" data-n="${n}" aria-label="${n}">${ART.pips(n)}</button>`).join("");
+}
+function showMove(){
+  const c=$("dicecard"); c.className="card";
+  const used = G.stepsMax-G.steps;
+  c.innerHTML = `<div id="left" aria-label="Schritte übrig">${Array.from({length:G.stepsMax},(_,i)=>`<span class="dot ${i<used?"used":""}"></span>`).join("")}</div>
+    <button class="act" id="done" aria-label="Früher aufhören"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l5 5L19 7"/></svg></button>`;
+}
+
+/* =====================================================================
+   Spielablauf
+   ===================================================================== */
+function figNode(){ return G.phase===1 ? G.flies[G.active].node : G.hog.node; }
+function setFigNode(k){
+  if(G.phase===1) G.flies[G.active].node=k;
+  else { const dx=N[k].x-N[G.hog.node].x; if(Math.abs(dx)>20) G.hog.face = dx<0 ? -1 : 1; G.hog.node=k; }
+}
+async function startTurn(){
+  G.busy=false; G.stage="dice"; G.path=[]; G.steps=0; G.walkedTurn=0; G.scared=null;
+  G.active = G.turn % G.cfg.players;
+  if(G.phase===2 && G.hog.hunger<=0){
+    const game=G; G.busy=true; updateBelly(); positionAll(); $("dicecard").innerHTML="";
+    note("Der Igel hat grossen Hunger. Er sucht sich selbst etwas zu fressen. Das kostet Zeit."); sfx.soft();
+    await wait(3200); if(G!==game) return;
+    G.hog.hunger=2; G.timeUsed+=1; G.turn++; updateSky(); updateBelly(true);
+    if(G.timeUsed>=G.timeTotal) return endGame(false);
+    return startTurn();
+  }
+  updateBelly(); positionAll(); showDice(); drawRings();
+}
+function onDice(n){
+  if(!G || G.stage!=="dice" || G.busy) return;
+  audio(); tone(700,.08,"sine",.08);
+  let steps=n;
+  if(G.phase===2 && n>G.S.cap){ steps=G.S.cap; if(!G.saidCap){ G.saidCap=true; note("Das Igelbaby ist noch klein. Es schafft höchstens vier Schritte."); } }
+  G.steps=steps; G.stepsMax=steps; G.walkedTurn=0; G.stage="move"; G.path=[figNode()];
+  showMove(); drawRings();
+}
+function afterMove(){ updateDark(); if(G.phase===1) peekCheck(); positionAll(); showMove(); drawRings(); }
+function tryStep(k){
+  if(!G || G.stage!=="move" || G.busy || k==null) return;
+  const cur=G.path[G.path.length-1];
+  if(k===cur) return;
+  const e = N[cur].adj.find(e=>e.to===k);
+  if(!e || G.steps<=0 || (G.phase===1 && e.hole)) return;
+  const cost = (G.phase===2 && N[k].lamp) ? Math.min(2, G.steps) : 1; // im Laternenlicht zählt ein Feld doppelt
+  G.path.push(k); G.steps -= cost; G.walkedTurn++; sfx.step(); setFigNode(k); G.seen.add(k); afterMove();
+  if(G.phase===2 && N[k].lamp && !G.saidLamp){ G.saidLamp=true; note("Im Laternenlicht geht der scheue Igel ganz langsam. Das kostet zwei Schritte."); }
+  if(G.phase===2 && e.hole && !G.saidHole){ G.saidHole=true; note("Ein Loch im Zaun! Da passt der Igel durch."); }
+  if(G.phase===1){ if(k===G.hog.node) return confirmTurn(); }
+  else {
+    const t=G.type[k];
+    if(k===G.nest) return confirmTurn();
+    if(e.road){ if(t==="beetle"||t==="worm") gulp(k); return scare("Die Strasse ist gefährlich für Igel. Nehmt lieber den Tunnel."); }
+    if(t==="hazard") return scare(G.hz[k].say);
+    if(t==="milk") return scare("Milch! Davon bekommt der Igel Bauchweh.");
+    if(t==="plastic") return scare("Abfall! Den darf der Igel nicht fressen.");
+    if(t==="beetle"||t==="worm") return eat(k);
+  }
+  if(G.steps===0) confirmTurn();
+}
+
+// Futter: sofort fressen, kurze Pause, dann geht es weiter
+function gulp(k){
+  delete G.type[k]; const o=$("obj"+k); if(o) o.remove();
+  G.hog.hunger=Math.min(HUNGER_MAX, G.hog.hunger+FOOD_GAIN); updateBelly(true); sfx.munch();
+}
+function eat(k){
+  const game=G; G.busy=true; drawRings(); positionAll();
+  gulp(k); G.hog.el.classList.add("munch");
+  setTimeout(() => { if(G!==game) return;
+    G.hog.el.classList.remove("munch"); G.busy=false; G.path=[k];
+    if(G.steps===0) confirmTurn(); else { positionAll(); showMove(); drawRings(); }
+  }, 1000);
+}
+// Verbotenes Feld: Igel rollt sich ein, der Rest der Würfelzahl verfällt
+function scare(msg){ G.scared=msg; G.steps=0; confirmTurn(); }
+
+function peekCheck(){
+  if(G.phase!==1 || G.hog.found) return;
+  const near = G.L.peek && G.flies.some(f => N[f.node].adj.some(e=>e.to===G.hog.node));
+  const was = G.hog.el.style.display!=="none";
+  G.hog.el.style.display = near ? "" : "none";
+  if(near && !was) noise(.35, 3200, .2);
+}
+function confirmTurn(){
+  if(!G || G.stage!=="move" || G.busy) return;
+  G.busy=true; G.stage="wait"; drawRings(); $("dicecard").innerHTML=""; positionAll();
+  return G.phase===1 ? endSearchTurn() : endHomeTurn();
+}
+
+/* ---------- Phase 1: suchen ---------- */
+async function endSearchTurn(){
+  const game=G; G.timeUsed+=1; updateSky();
+  if(figNode()===G.hog.node){
+    G.hog.found=true; G.hog.el.style.display=""; positionAll(); sfx.found();
+    await wait(1300); if(G!==game) return;
+    await story(sceneFound(), "Gefunden!", G.S.found, "Heimbringen"); if(G!==game) return;
+    // Die Nacht bleibt: nur das Glühwürmchen beim Igel und das Nest leuchten
+    G.phase=2; G.turn++; G.active=G.turn % G.cfg.players; G.shown=G.active; $("hints").innerHTML=""; updateDark(); positionAll(); updateBelly();
+    await wait(1400); if(G!==game) return;
+    if(G.timeUsed>=G.timeTotal) return endGame(false);
+    return startTurn();
+  }
+  if(G.timeUsed>=G.timeTotal) return endGame(false);
+  G.turn++;
+  if(G.turn % G.cfg.players===0){
+    G.round++;
+    if(G.L.moveEvery && G.round % G.L.moveEvery===0) hogWanders();
+    if(G.round % G.L.hintEvery===0){ await wait(350); if(G!==game) return; giveHint(); await wait(900); if(G!==game) return; }
+  }
+  startTurn();
+}
+function hogWanders(){
+  const busy = new Set(G.flies.map(f=>f.node));
+  const opts = N[G.hog.node].adj.filter(e=>!e.road && !busy.has(e.to) && !G.type[e.to]).map(e=>e.to);
+  if(!opts.length) return;
+  const hides = opts.filter(k=>N[k].hide), old=G.hog.node;
+  G.hog.node = hides.length && Math.random()<.7 ? pick(hides) : pick(opts);
+  addPrints(old); positionAll(); peekCheck();
+}
+function addPrints(k){
+  if(G.prints.includes(k)) return; G.prints.push(k);
+  const n=N[k]; svg($("hints"), `<g class="hint" transform="translate(${f1(n.x)} ${f1(n.y)})">${ART.prints()}</g>`);
+  Array.from($("hints").querySelectorAll(".hint")).slice(0,-2).forEach(el=>el.style.opacity=.35);
+}
+function giveHint(first, forceArrow){
+  G.hintNo++;
+  const next = G.flies[G.turn % G.cfg.players], a=N[next.node], h=N[G.hog.node];
+  if(G.hintNo%2===1 || first || forceArrow){
+    const ang=Math.atan2(h.y-a.y, h.x-a.x), deg=ang*180/Math.PI, x=a.x+Math.cos(ang)*78, y=a.y+Math.sin(ang)*78;
+    const el = svg($("hints"), `<g class="hint" transform="translate(${f1(x)} ${f1(y)}) rotate(${deg.toFixed(0)})"><path d="M-26 0h34" stroke="#ffe9a8" stroke-width="9" stroke-linecap="round"/><path d="M8 -15l20 15l-20 15z" fill="#ffe9a8" stroke="#ffe9a8" stroke-width="5" stroke-linejoin="round"/></g>`);
+    sfx.rustle(); note(first ? "Es raschelt! Der Pfeil zeigt die Richtung." : "Es raschelt wieder!", 3000);
+    setTimeout(()=>{ el.style.opacity=0; setTimeout(()=>el.remove(),900); }, 5200);
+  } else {
+    const d=bfs(G.hog.node), c=N.map(n=>n.id).filter(k=>d[k]>=1 && d[k]<=2 && !G.prints.includes(k));
+    if(c.length){ addPrints(pick(c)); tone(880,.12,"sine",.08); note("Fussspuren! Hier war der Igel vor kurzem.", 3000); }
+    else giveHint(false, true);
+  }
+}
+
+/* ---------- Phase 2: heimbringen ---------- */
+async function endHomeTurn(){
+  const game=G, before=Math.floor(G.hog.walked/STEPS_PER_HUNGER);
+  G.hog.walked += G.walkedTurn;
+  G.hog.hunger = Math.max(0, G.hog.hunger - (Math.floor(G.hog.walked/STEPS_PER_HUNGER)-before));
+  G.timeUsed += 1; updateSky(); updateBelly();
+  if(G.hog.node===G.nest) return endGame(true);
+  if(G.scared){ setHog("rolled"); sfx.scare(); note(G.scared, 3200); await wait(2600); if(G!==game) return; setHog("walk"); }
+  else await wait(400);
+  if(G!==game) return;
+  if(G.timeUsed>=G.timeTotal) return endGame(false);
+  G.turn++; startTurn();
+}
+
+/* ---------- Ende ---------- */
+async function endGame(won){
+  const game=G; G.busy=true; G.stage="end"; $("dicecard").innerHTML=""; drawRings(); clearNote(); positionAll();
+  const fact = pick(FACTS.concat(G.S.facts));
+  if(won) sfx.win();
+  else { sfx.soft(); $("dawn").style.opacity=.9; }
+  setHog("sleep");
+  await wait(won?1100:1600); if(G!==game) return;
+  const scene = won
+    ? `<svg class="scene" viewBox="-90 -70 180 130"><g transform="translate(0 14) scale(1.5)">${ART.nest()}</g><g transform="translate(-4 4) scale(1.15)">${ART.hog("sleep")}</g><g transform="translate(-62 -40) scale(.6)">${ART.fly(0)}</g><g transform="translate(58 -44) scale(.6)">${ART.fly(1)}</g><g transform="translate(6 -56) scale(.5)">${ART.fly(3)}</g></svg>`
+    : `<svg class="scene" viewBox="-90 -70 180 130"><circle cx="56" cy="-40" r="30" fill="#ffd08a" opacity=".4"/><circle cx="56" cy="-40" r="20" fill="#ffd08a"/>${blob(-4,-8,44,"#5fa87c","#a8dcb4")}<g transform="translate(0 26) scale(1.15)">${ART.hog("sleep")}</g></svg>`;
+  $("endSheet").innerHTML = `${scene}
+    <h2>${won ? "Geschafft!" : "Die Sonne geht auf"}</h2>
+    <p>${won ? "Der Igel ist sicher in seinem Nest." : "Der Igel schläft heute unter der Hecke. Heute Nacht versuchen wir es nochmal!"}</p>
+    <p><b>Wusstest du?</b> ${fact}</p>
+    <button class="big" id="again">Fertig</button>`;
+  $("endVeil").classList.add("on");
+  $("again").onclick = () => { $("endVeil").classList.remove("on"); showStart(); };
+}
+
+/* =====================================================================
+   Startbildschirm
+   ===================================================================== */
+const cfg = {players:2, colors:[0,1,2,3], season:"summer", level:"easy"};
+let stepNo = 0;
+const STEPS = [
+  { q:"Wer spielt mit?",
+    opts:()=>[1,2,3,4].map(n=>({v:n, label:"", art:`<svg viewBox="-70 -40 140 80">${Array.from({length:n},(_,i)=>`<g transform="translate(${(i-(n-1)/2)*32} 0) scale(.8)">${ART.fly(i)}</g>`).join("")}</svg>`})),
+    set:v=>cfg.players=v },
+  { q:"Welche Jahreszeit?",
+    opts:()=>Object.keys(SEASONS).map(k=>{ const S=SEASONS[k], p=S.pal; return {v:k, label:S.name, sub:S.sub,
+      art:`<svg viewBox="0 0 120 80"><rect width="120" height="80" rx="22" fill="${p.g1}"/><circle cx="92" cy="20" r="16" fill="#fff" opacity=".2"/><circle cx="92" cy="20" r="10" fill="#fbf4e4"/>${blob(26,58,20,p.tree,p.treeHi)}${blob(58,66,15,p.bush,p.bushHi)}<g fill="${p.dots}"><circle cx="80" cy="52" r="4"/><circle cx="94" cy="62" r="4"/><circle cx="106" cy="50" r="4"/></g></svg>`}; }),
+    set:v=>cfg.season=v },
+  { q:"Wie schwer soll es sein?",
+    opts:()=>Object.keys(LEVELS).map((k,i)=>({v:k, label:LEVELS[k].name, art:`<svg viewBox="-80 -34 160 68">${Array.from({length:i+1},(_,j)=>`<g transform="translate(${(j-i/2)*48-4} 0) scale(.72)">${ART.hog("walk")}</g>`).join("")}</svg>`})),
+    set:v=>cfg.level=v }
+];
+// Jede Person wählt ihr eigenes Glühwürmchen; vergebene Farben fallen weg
+function colorStep(i){ return { compact:true,
+  q: cfg.players>1 ? `Spieler ${i+1}: Wähle dein Glühwürmchen` : "Wähle dein Glühwürmchen",
+  opts:()=>FLYC.map((_,c)=>c).filter(c=>!cfg.colors.slice(0,i).includes(c)).map(c=>({v:c, label:FLYNAME[c], art:`<svg viewBox="-40 -40 80 80"><g transform="scale(1.25)">${ART.fly(c)}</g></svg>`})),
+  set:v=>{ cfg.colors[i]=v; } }; }
+function flow(){ return [STEPS[0], ...Array.from({length:cfg.players}, (_,i)=>colorStep(i)), STEPS[1], STEPS[2]]; }
+
+// Geschichte: kurze Karte mit Bild, Text zum Vorlesen und einem Knopf
+function story(scene, title, text, btn){
+  return new Promise(res => {
+    $("storySheet").innerHTML = `${scene}<h2>${title}</h2><p>${text}</p><button class="big" id="storyGo">${btn}</button>`;
+    $("storyVeil").classList.add("on");
+    $("storyGo").onclick = () => { audio(); $("storyVeil").classList.remove("on"); res(); };
+  });
+}
+function sceneStart(){ const p=G.S.pal; return `<svg class="scene" viewBox="-90 -70 180 130"><circle cx="0" cy="-2" r="66" fill="#2a3277"/>${blob(-16,4,38,p.bush,p.bushHi)}<g transform="translate(24 22)">${ART.hog("walk", G.cfg.season==="summer")}</g><g transform="translate(-40 -40) scale(.7)">${ART.fly(G.flies[0].c)}</g></svg>`; }
+function sceneFound(){ return `<svg class="scene" viewBox="-90 -70 180 130"><circle cx="0" cy="-2" r="66" fill="#2a3277"/><g transform="translate(34 18) scale(.8)">${ART.nest()}</g><g transform="translate(-26 20)">${ART.hog("walk", G.cfg.season==="summer")}</g>${G.flies.map((f,j,a)=>{ const x = a.length>1 ? -54+j*108/(a.length-1) : -20, y = -40+Math.abs(x)*.12; return `<g transform="translate(${f1(x)} ${f1(y)}) scale(.6)">${ART.fly(f.c)}</g>`; }).join("")}</svg>`; }
+
+function showStart(){ G=null; stepNo=0; clearNote(); $("storyVeil").classList.remove("on"); $("game").classList.remove("on"); $("start").classList.add("on"); renderStep(); }
+function renderStep(){
+  const s=flow()[stepNo]; $("question").textContent=s.q; $("backBtn").classList.toggle("on", stepNo>0);
+  const c=$("choices"); c.innerHTML=""; c.className = "choices" + (s.compact ? " compact" : "");
+  s.opts().forEach(o => { const b=document.createElement("button"); b.className="choice";
+    b.innerHTML = o.art + (o.label?`<span>${o.label}</span>`:"") + (o.sub?`<small>${o.sub}</small>`:"");
+    b.setAttribute("aria-label", o.label || String(o.v));
+    b.onclick = () => { audio(); tone(600,.1,"sine",.09); s.set(o.v); if(stepNo<flow().length-1){ stepNo++; renderStep(); } else begin(); };
+    c.appendChild(b); });
+}
+async function begin(){
+  $("start").classList.remove("on"); $("game").classList.add("on");
+  newGame(cfg); const game=G; G.busy=true; $("dicecard").innerHTML="";
+  await story(sceneStart(), "Der Igel braucht euch!", G.S.intro, "Suchen"); if(G!==game) return;
+  giveHint(true); await wait(1200); if(G!==game) return;
+  startTurn();
+}
+
+/* =====================================================================
+   Eingaben
+   ===================================================================== */
+const board = $("board");
+function nodeAt(ev){
+  const m = board.getScreenCTM(); if(!m) return null;
+  const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse());
+  let best=null, bd=54*54;
+  for(const n of N){ const d=(n.x-pt.x)**2+(n.y-pt.y)**2; if(d<bd){bd=d;best=n.id;} }
+  return best;
+}
+let dragging=false;
+board.addEventListener("pointerdown", ev => { dragging=true; audio(); tryStep(nodeAt(ev)); });
+board.addEventListener("pointermove", ev => { if(dragging) tryStep(nodeAt(ev)); });
+["pointerup","pointercancel","pointerleave"].forEach(t => board.addEventListener(t, () => dragging=false));
+
+$("dicecard").addEventListener("click", ev => {
+  const die = ev.target.closest(".die"); if(die) return onDice(+die.dataset.n);
+  if(ev.target.closest("#done")) return confirmTurn();
+});
+$("backBtn").onclick = () => { if(stepNo>0){ stepNo--; renderStep(); } };
+$("fsBtn").onclick = () => { try{ const d=document, e=d.documentElement;
+  if(d.fullscreenElement||d.webkitFullscreenElement){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); }
+  else { (e.requestFullscreen||e.webkitRequestFullscreen).call(e); } }catch(err){ note("Vollbild geht hier leider nicht."); } };
+if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)) $("fsBtn").style.display="none";
+// Im Vollbild zeigt die Taste nach innen gerichtete Ecken (Vollbild beenden)
+function syncFs(){ const on=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  document.body.classList.toggle("fs", on);
+  $("fsIcon").setAttribute("d", on ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5");
+  $("fsBtn").setAttribute("aria-label", on ? "Vollbild beenden" : "Vollbild");
+  if(G) setTimeout(updateDark, 300); }
+["fullscreenchange","webkitfullscreenchange"].forEach(t => document.addEventListener(t, syncFs));
+
+// Eltern-Menü: Zahnrad 3 Sekunden gedrückt halten
+let holdT=null; const gear=$("gear");
+const holdEnd = () => { clearTimeout(holdT); gear.classList.remove("holding"); };
+gear.addEventListener("pointerdown", () => { gear.classList.add("holding"); holdT=setTimeout(()=>{ holdEnd(); openMenu(); }, 3000); });
+["pointerup","pointerleave","pointercancel"].forEach(t => gear.addEventListener(t, holdEnd));
+gear.addEventListener("contextmenu", e => e.preventDefault());
+function syncSwitches(){ $("swSound").setAttribute("aria-checked", prefs.sound); }
+function openMenu(){ syncSwitches(); $("menuVeil").classList.add("on"); }
+$("swSound").onclick = () => { prefs.sound=!prefs.sound; store.set("prefs", prefs); syncSwitches(); };
+$("menuClose").onclick = () => $("menuVeil").classList.remove("on");
+$("menuQuit").onclick = () => { $("menuVeil").classList.remove("on"); showStart(); };
+
+window.addEventListener("resize", () => { if(G) updateDark(); });
+document.addEventListener("gesturestart", e => e.preventDefault());
+document.addEventListener("dblclick", e => e.preventDefault());
+
+// Sternenhimmel auf dem Startbildschirm
+(function(){ const r=mulberry(5); let h=""; for(let i=0;i<90;i++) h+=`<circle cx="${(r()*1200).toFixed(0)}" cy="${(r()*820).toFixed(0)}" r="${(.6+r()*1.8).toFixed(1)}" fill="#fbf4e4" opacity="${(.25+r()*.6).toFixed(2)}"/>`;
+  h += `<g transform="translate(1010 150)"><circle r="80" fill="#fbf4e4" opacity=".08"/><circle r="54" fill="#fbf4e4"/><circle cx="22" cy="-14" r="46" fill="#2f3580"/></g>`;
+  $("startStars").innerHTML=h; })();
+
+// Als App gestartet? Dann Statusleiste berücksichtigen und Vollbild-Taste ausblenden.
+// Im Safari auf dem iPad (nicht eingebettet) beim ersten Besuch erklären, wie man das Spiel auf den Home-Bildschirm legt.
+(function(){
+  const mm = q => { try{ return window.matchMedia(q).matches; }catch(e){ return false; } };
+  const isApp = !!navigator.standalone || mm("(display-mode: standalone)") || mm("(display-mode: fullscreen)");
+  const isIPad = /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  let inFrame = false; try{ inFrame = window.self !== window.top; }catch(e){ inFrame = true; }
+  const force = /[?&]install=1/.test(location.search);
+  if(isApp){ document.body.classList.add("app"); $("fsBtn").style.display="none"; }
+  const canInstall = force || (isIPad && !isApp && !inFrame);
+  const show = () => $("installVeil").classList.add("on");
+  $("installOk").onclick = () => { $("installVeil").classList.remove("on"); store.set("installSeen", true); };
+  $("installBtn").onclick = show;
+  if(canInstall){ $("installBtn").classList.add("on"); if(force || !store.get("installSeen", false)) setTimeout(show, 600); }
+})();
+
+showStart();
+window.__igel = { get G(){return G;}, N, BOARD, bfs, onDice, tryStep, confirmTurn, newGame, cfg, startTurn };
+</script>
+<script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
+</body>
+</html>
