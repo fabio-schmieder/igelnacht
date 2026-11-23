@@ -2,7 +2,7 @@
 
 Ein kooperatives Spiel für Kinder ab 5 Jahren, gemacht fürs iPad. Ein Igel hat sich in der Nacht verlaufen: Gemeinsam sucht ihr ihn mit euren Glühwürmchen im dunklen Garten und bringt ihn vor Sonnenaufgang heim ins Nest. Gewürfelt wird mit einem echten Würfel.
 
-**Spielen:** Seite im Safari auf dem iPad öffnen und über Teilen → „Zum Home-Bildschirm“ als App speichern. Danach läuft das Spiel im ganzen Bildschirm und ohne Internet.
+**Spielen:** [igelnacht.ch](https://igelnacht.ch) im Safari auf dem iPad öffnen und über Teilen → „Zum Home-Bildschirm“ als App speichern. Danach läuft das Spiel im ganzen Bildschirm und ohne Internet.
 
 ## Aufbau
 
