@@ -9,14 +9,14 @@ async def main():
         await ctx.add_init_script("Object.defineProperty(navigator,'maxTouchPoints',{get:()=>5})")
         pg=await ctx.new_page(); errs=[]; reqs=[]
         pg.on('pageerror',lambda e: errs.append(str(e))); pg.on('request',lambda r: reqs.append(r.url))
-        await pg.goto('http://localhost:8765/'); await pg.wait_for_timeout(1500)
+        await pg.goto('http://localhost:8766/'); await pg.wait_for_timeout(1500)
         hint=await pg.evaluate("document.getElementById('installVeil').classList.contains('on')")
         font=await pg.evaluate("document.fonts.check('500 20px Fredoka')")
         await pg.screenshot(path=SHOT+'/site_hint.png')
         await pg.click('#installOk'); await pg.wait_for_timeout(300)
         await pg.reload(); await pg.wait_for_timeout(1200)
         hint2=await pg.evaluate("document.getElementById('installVeil').classList.contains('on')")
-        btn=await pg.evaluate("document.getElementById('installBtn').classList.contains('on')")
+        btn=await pg.evaluate("!!document.getElementById('installBtn')")
         sw=await pg.evaluate("navigator.serviceWorker.getRegistration().then(r=>!!(r&&r.active))")
         external=[u for u in reqs if not u.startswith('http://localhost')]
         # Offline: Netz abschalten und neu laden
@@ -25,7 +25,7 @@ async def main():
         await ctx.set_offline(False)
         print(json.dumps({'Anleitung beim ersten Besuch':hint,'Anleitung beim zweiten Besuch':hint2,'Knopf Als App speichern':btn,'Schrift geladen':font,'Offline-Speicher aktiv':sw,'Auswahltasten offline':offline_ok,'Externe Anfragen':external,'Fehler':errs}, ensure_ascii=False, indent=1))
         # Desktop ohne iPad: keine Anleitung
-        pg2=await b.new_page(); await pg2.goto('http://localhost:8765/'); await pg2.wait_for_timeout(900)
+        pg2=await b.new_page(); await pg2.goto('http://localhost:8766/'); await pg2.wait_for_timeout(900)
         print('Desktop-Browser zeigt Anleitung:', await pg2.evaluate("document.getElementById('installVeil').classList.contains('on')"))
         await b.close()
 asyncio.run(main())

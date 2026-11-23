@@ -131,9 +131,6 @@ body.app .back{top:calc(22px + max(env(safe-area-inset-top, 0px), 24px))}
 body.app #dicecard{bottom:calc(12px + max(env(safe-area-inset-bottom, 0px), 14px))}
 body.app #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + env(safe-area-inset-bottom, 0px))}
 /* Hinweis: Spiel auf den Home-Bildschirm legen */
-.install{position:absolute;right:22px;top:22px;z-index:2;display:none;align-items:center;gap:10px;height:56px;padding:0 20px 0 14px;border-radius:999px;background:rgba(251,244,228,.14);font-size:18px;font-weight:500}
-.install.on{display:flex}
-.install svg{width:28px;height:28px}
 .steps{list-style:none;padding:0;margin:16px auto 8px;text-align:left;max-width:30em;counter-reset:st}
 .steps li{display:flex;gap:14px;align-items:center;padding:8px 0;font-size:clamp(16px,2.4vh,20px);line-height:1.35}
 .steps .ic{flex:none;position:relative;width:56px;height:56px;border-radius:18px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(69,63,107,.15)}
@@ -172,7 +169,6 @@ body.app #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + env(safe-area-inse
 <section id="start" class="screen on">
   <svg class="stars" id="startStars" viewBox="0 0 1200 820" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
   <button class="back" id="backBtn" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="#fbf4e4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
-  <button class="install" id="installBtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fbf4e4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6v11h12V9h-2M12 3v12M8 7l4-4 4 4"/></svg>Als App speichern</button>
   <div class="start-inner">
     <h1 class="title">Igelnacht</h1>
     <p class="question" id="question"></p>
@@ -961,8 +957,8 @@ document.addEventListener("dblclick", e => e.preventDefault());
   const canInstall = force || (isIPad && !isApp && !inFrame);
   const show = () => $("installVeil").classList.add("on");
   $("installOk").onclick = () => { $("installVeil").classList.remove("on"); store.set("installSeen", true); };
-  $("installBtn").onclick = show;
-  if(canInstall){ $("installBtn").classList.add("on"); if(force || !store.get("installSeen", false)) setTimeout(show, 600); }
+  // nur einmal zeigen; mit ?install=1 in der Adresse lässt sie sich jederzeit wieder aufrufen
+  if(canInstall && (force || !store.get("installSeen", false))) setTimeout(show, 600);
 })();
 
 showStart();
