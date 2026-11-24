@@ -994,6 +994,16 @@ document.addEventListener("dblclick", e => e.preventDefault());
   if(canInstall && (force || !store.get("installSeen", false))) setTimeout(show, 600);
 })();
 
+// Würfeltest: mit ?wuerfeltest=1 in der Adresse 6000 Mal würfeln und die Verteilung zeigen
+if(/[?&]wuerfeltest=1/.test(location.search)){
+  const c=[0,0,0,0,0,0]; for(let i=0;i<6000;i++) c[rand6()-1]++;
+  let viaCrypto=true; try{ crypto.getRandomValues(new Uint32Array(1)); }catch(e){ viaCrypto=false; }
+  const d=document.createElement("div");
+  d.style.cssText="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;background:#fbf4e4;color:#453f6b;border-radius:20px;padding:14px 18px;font-size:18px;text-align:center";
+  d.textContent="Würfeltest, 6000 Würfe: "+c.map((n,i)=>(i+1)+": "+n).join("  ·  ")+(viaCrypto?"":"  (ohne crypto)");
+  document.body.appendChild(d);
+}
+
 showStart();
 window.__igel = { get G(){return G;}, N, BOARD, bfs, onDice, tryStep, confirmTurn, newGame, cfg, startTurn };
 </script>
