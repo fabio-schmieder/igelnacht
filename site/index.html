@@ -92,6 +92,17 @@ body.fs #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + max(env(safe-area-i
   box-shadow:0 6px 0 #d9cdb0, 0 10px 16px rgba(69,63,107,.2);transition:transform .08s, box-shadow .08s}
 .die:active{transform:translateY(5px);box-shadow:0 1px 0 #d9cdb0}
 .die svg{width:74%;height:auto}
+/* Digitaler Würfel: ein grosser Würfel zum Antippen */
+.bigdie{width:clamp(76px,9.5vw,96px);height:clamp(76px,9.5vw,96px);border-radius:30px}
+.bigdie.idle svg{opacity:.35}
+.bigdie.idle{animation:diceNudge 2.4s ease-in-out infinite}
+.bigdie.rolling{animation:diceTumble .18s linear infinite}
+.bigdie.landed{animation:diceLand .35s ease-out}
+@keyframes diceNudge{0%,30%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}20%{transform:rotate(7deg)}}
+@keyframes diceTumble{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(16deg) scale(.9)}}
+@keyframes diceLand{0%{transform:scale(1.2)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.bigdie{animation:none!important}}
+.row small{display:block;font-size:15px;color:var(--ink-soft);margin-top:2px}
 .act{width:clamp(60px,7.6vw,78px);height:clamp(60px,7.6vw,78px);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 rgba(69,63,107,.25)}
 .act:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(69,63,107,.25)}
 .act svg{width:44%;height:44%}
@@ -213,6 +224,7 @@ body.app #caption{bottom:calc(clamp(64px,8.4vw,86px) + 60px + env(safe-area-inse
     <div class="sheet">
       <h2>Eltern-Menü</h2>
       <div class="row"><span>Geräusche</span><button class="switch" role="switch" id="swSound"></button></div>
+      <div class="row"><span>Digitaler Würfel<small>Gilt nur für heute, morgen ist wieder der echte Würfel dran.</small></span><button class="switch" role="switch" id="swDice"></button></div>
       <button class="big" id="menuClose">Weiterspielen</button>
       <button class="big" id="menuQuit" style="background:#c9657a">Partie beenden</button>
     </div>
@@ -320,6 +332,8 @@ function noise(dur=.5, freq=3200, vol=.22, delay=0){
 }
 const sfx = {
   step(){ tone(540,.09,"sine",.07); },
+  clack(){ noise(.05, 2400, .28); tone(300,.04,"triangle",.05); },
+  landed(){ noise(.07, 1800, .3); tone(660,.14,"sine",.09,.05); },
   back(){ tone(340,.09,"sine",.06); },
   rustle(){ noise(.6, 3200, .22); },
   munch(){ [0,.22,.44,.66].forEach(d => { noise(.11, 1500, .3, d); tone(190,.07,"triangle",.07,d); }); tone(784,.18,"sine",.09,.86); },
@@ -670,9 +684,25 @@ function drawRings(){
 }
 
 /* ---------- Karten ---------- */
+// Digitaler Würfel: gilt nur am Tag, an dem er eingeschaltet wurde
+function today(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function digitalOn(){ return store.get("digitalDay", null) === today(); }
+let rolling = false;
+function rand6(){ try{ const a=new Uint32Array(1); crypto.getRandomValues(a); return 1 + a[0] % 6; }catch(e){ return 1 + Math.floor(Math.random()*6); } }
 function showDice(){
-  const c=$("dicecard"); c.className = "card";
+  const c=$("dicecard"); c.className = "card"; rolling = false;
+  if(digitalOn()){ c.innerHTML = `<button class="die bigdie idle" id="rollBtn" aria-label="Würfeln">${ART.pips(3)}</button>`; return; }
   c.innerHTML = [1,2,3,4,5,6].map(n => `<button class="die" data-n="${n}" aria-label="${n}">${ART.pips(n)}</button>`).join("");
+}
+async function rollDigital(){
+  if(!G || G.stage!=="dice" || G.busy || rolling) return;
+  const game=G, btn=$("rollBtn"); if(!btn) return;
+  rolling = true; audio(); btn.classList.remove("idle"); btn.classList.add("rolling");
+  let face = rand6();
+  for(let i=0;i<9;i++){ let f; do{ f=rand6(); }while(f===face); face=f; btn.innerHTML=ART.pips(face); sfx.clack(); await wait(95); if(G!==game) return; }
+  const n = rand6(); btn.innerHTML = ART.pips(n); btn.classList.remove("rolling"); btn.classList.add("landed"); sfx.landed();
+  await wait(1000); if(G!==game || G.stage!=="dice") return;
+  rolling = false; onDice(n);
 }
 function showMove(){
   const c=$("dicecard"); c.className="card";
@@ -917,6 +947,7 @@ board.addEventListener("pointermove", ev => { if(dragging) tryStep(nodeAt(ev)); 
 ["pointerup","pointercancel","pointerleave"].forEach(t => board.addEventListener(t, () => dragging=false));
 
 $("dicecard").addEventListener("click", ev => {
+  if(ev.target.closest("#rollBtn")) return rollDigital();
   const die = ev.target.closest(".die"); if(die) return onDice(+die.dataset.n);
   if(ev.target.closest("#done")) return confirmTurn();
 });
@@ -939,9 +970,11 @@ const holdEnd = () => { clearTimeout(holdT); gear.classList.remove("holding"); }
 gear.addEventListener("pointerdown", () => { gear.classList.add("holding"); holdT=setTimeout(()=>{ holdEnd(); openMenu(); }, 3000); });
 ["pointerup","pointerleave","pointercancel"].forEach(t => gear.addEventListener(t, holdEnd));
 gear.addEventListener("contextmenu", e => e.preventDefault());
-function syncSwitches(){ $("swSound").setAttribute("aria-checked", prefs.sound); }
+function syncSwitches(){ $("swSound").setAttribute("aria-checked", prefs.sound); $("swDice").setAttribute("aria-checked", digitalOn()); }
 function openMenu(){ syncSwitches(); $("menuVeil").classList.add("on"); }
 $("swSound").onclick = () => { prefs.sound=!prefs.sound; store.set("prefs", prefs); syncSwitches(); };
+$("swDice").onclick = () => { store.set("digitalDay", digitalOn() ? null : today()); syncSwitches();
+  if(G && G.stage==="dice" && !G.busy && !rolling) showDice(); };
 $("menuClose").onclick = () => $("menuVeil").classList.remove("on");
 $("menuQuit").onclick = () => { $("menuVeil").classList.remove("on"); showStart(); };
 
